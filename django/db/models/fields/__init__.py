@@ -656,6 +656,8 @@ class Field(RegisterLookupMixin):
             path = path.replace("django.db.models.fields.json", "django.db.models")
         elif path.startswith("django.db.models.fields.proxy"):
             path = path.replace("django.db.models.fields.proxy", "django.db.models")
+        elif path.startswith("django.db.models.fields.composite"):
+            path = path.replace("django.db.models.fields.composite", "django.db.models")
         elif path.startswith("django.db.models.fields"):
             path = path.replace("django.db.models.fields", "django.db.models")
         # Return basic info - other fields should override this.
@@ -1826,9 +1828,8 @@ class DecimalField(Field):
             )
         return decimal_value
 
-    def get_db_prep_save(self, value, connection):
-        if hasattr(value, "as_sql"):
-            return value
+    def get_db_prep_value(self, value, connection, prepared=False):
+        value = super().get_db_prep_value(value, connection, prepared)
         return connection.ops.adapt_decimalfield_value(
             self.to_python(value), self.max_digits, self.decimal_places
         )
