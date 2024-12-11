@@ -31,6 +31,25 @@ and only officially support the latest release of each series.
 What's new in Django 5.2
 ========================
 
+Composite Primary Keys
+----------------------
+
+The new :class:`django.db.models.CompositePrimaryKey` allows tables to be
+created with a primary key consisting of multiple fields.
+
+To use a composite primary key, when creating a model set the ``pk`` field to
+be a ``CompositePrimaryKey``::
+
+    from django.db import models
+
+
+    class Release(models.Model):
+        pk = models.CompositePrimaryKey("version", "name")
+        version = models.IntegerField()
+        name = models.CharField(max_length=20)
+
+See :doc:`/topics/composite-primary-key` for more details.
+
 Minor features
 --------------
 
@@ -230,6 +249,10 @@ Forms
 * The new :class:`~django.forms.TelInput` form widget is for entering telephone
   numbers and renders as ``<input type="tel" ...>``.
 
+* The new ``field_id`` argument for :class:`~django.forms.ErrorList` allows an
+  HTML ``id`` attribute to be added in the error template. See
+  :attr:`.ErrorList.field_id` for details.
+
 Generic Views
 ~~~~~~~~~~~~~
 
@@ -256,10 +279,15 @@ Management Commands
   ``Command.autodetector`` attribute for subclasses to override in order to use
   a custom autodetector class.
 
+* The new :meth:`.BaseCommand.get_check_kwargs` method can be overridden in
+  custom commands to control the running of system checks, e.g. to opt into
+  database-dependent checks.
+
 Migrations
 ~~~~~~~~~~
 
-* ...
+* The new operation :class:`.AlterConstraint` is a no-op operation that alters
+  constraints without dropping and recreating constraints in the database.
 
 Models
 ~~~~~~
@@ -342,7 +370,9 @@ Tests
 URLs
 ~~~~
 
-* ...
+* :func:`~django.urls.reverse` now accepts ``query`` and ``fragment`` keyword
+  arguments, allowing the addition of a query string and/or fragment identifier
+  in the generated URL, respectively.
 
 Utilities
 ~~~~~~~~~
@@ -375,6 +405,8 @@ backends.
 * The new :meth:`Model._is_pk_set() <django.db.models.Model._is_pk_set>` method
   allows checking if a Model instance's primary key is defined.
 
+* ``BaseDatabaseOperations.adapt_decimalfield_value()`` is now a no-op, simply
+  returning the given value.
 
 :mod:`django.contrib.gis`
 -------------------------
@@ -442,3 +474,7 @@ Miscellaneous
 
 * The ``all`` argument for the ``django.contrib.staticfiles.finders.find()``
   function is deprecated in favor of the ``find_all`` argument.
+
+* The fallback to ``request.user`` when ``user`` is ``None`` in
+  ``django.contrib.auth.login()`` and ``django.contrib.auth.alogin()`` will be
+  removed.
