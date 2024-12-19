@@ -1,6 +1,7 @@
 import os
 from datetime import datetime
 
+from django.core.exceptions import SuspiciousOperation
 from django.core.serializers.json import DjangoJSONEncoder
 from django.test import SimpleTestCase
 from django.utils.deprecation import RemovedInDjango60Warning
@@ -145,11 +146,17 @@ class TestUtilsHtml(SimpleTestCase):
             ("<script>alert()</script>&h", "alert()h"),
             ("><!" + ("&" * 16000) + "D", "><!" + ("&" * 16000) + "D"),
             ("X<<<<br>br>br>br>X", "XX"),
+            ("<" * 50 + "a>" * 50, ""),
         )
         for value, output in items:
             with self.subTest(value=value, output=output):
                 self.check_output(strip_tags, value, output)
                 self.check_output(strip_tags, lazystr(value), output)
+
+    def test_strip_tags_suspicious_operation(self):
+        value = "<" * 51 + "a>" * 51, "<a>"
+        with self.assertRaises(SuspiciousOperation):
+            strip_tags(value)
 
     def test_strip_tags_files(self):
         # Test with more lengthy content (also catching performance regressions)
@@ -368,6 +375,19 @@ class TestUtilsHtml(SimpleTestCase):
                 + "test@"
                 + "한.글." * 15
                 + "aaa</a>",
+            ),
+            (
+                # RFC 6068 requires a mailto URI to percent-encode a number of
+                # characters that can appear in <addr-spec>.
+                "yes;this=is&a%valid!email@example.com",
+                '<a href="mailto:yes%3Bthis%3Dis%26a%25valid%21email@example.com"'
+                ">yes;this=is&a%valid!email@example.com</a>",
+            ),
+            (
+                # Urlizer shouldn't urlize the "?org" part of this. But since
+                # it does, RFC 6068 requires percent encoding the "?".
+                "test@example.com?org",
+                '<a href="mailto:test@example.com%3Forg">test@example.com?org</a>',
             ),
         )
         for value, output in tests:

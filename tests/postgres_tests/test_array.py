@@ -547,7 +547,7 @@ class TestQuerying(PostgreSQLTestCase):
             NullableIntegerArrayModel.objects.filter(field__0_2=[2, 3]), self.objs[2:3]
         )
 
-    def test_order_by_slice(self):
+    def test_order_by_index(self):
         more_objs = (
             NullableIntegerArrayModel.objects.create(field=[1, 637]),
             NullableIntegerArrayModel.objects.create(field=[2, 1]),
@@ -1006,6 +1006,32 @@ class TestSerialization(PostgreSQLSimpleTestCase):
     def test_loading(self):
         instance = list(serializers.deserialize("json", self.test_data))[0].object
         self.assertEqual(instance.field, [1, 2, None])
+
+
+class TestStringSerialization(PostgreSQLSimpleTestCase):
+    field_values = [["Django", "Python", None], ["Джанго", "פייתון", None, "król"]]
+
+    @staticmethod
+    def create_json_data(array_field_value):
+        fields = {"field": json.dumps(array_field_value, ensure_ascii=False)}
+        return json.dumps(
+            [{"model": "postgres_tests.chararraymodel", "pk": None, "fields": fields}]
+        )
+
+    def test_encode(self):
+        for field_value in self.field_values:
+            with self.subTest(field_value=field_value):
+                instance = CharArrayModel(field=field_value)
+                data = serializers.serialize("json", [instance])
+                json_data = self.create_json_data(field_value)
+                self.assertEqual(json.loads(data), json.loads(json_data))
+
+    def test_decode(self):
+        for field_value in self.field_values:
+            with self.subTest(field_value=field_value):
+                json_data = self.create_json_data(field_value)
+                instance = list(serializers.deserialize("json", json_data))[0].object
+                self.assertEqual(instance.field, field_value)
 
 
 class TestValidation(PostgreSQLSimpleTestCase):
