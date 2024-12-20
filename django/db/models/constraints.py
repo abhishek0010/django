@@ -23,6 +23,8 @@ class BaseConstraint:
     violation_error_code = None
     violation_error_message = None
 
+    non_db_attrs = ("violation_error_code", "violation_error_message")
+
     # RemovedInDjango60Warning: When the deprecation ends, replace with:
     # def __init__(
     #     self, *, name, violation_error_code=None, violation_error_message=None
@@ -91,11 +93,13 @@ class BaseConstraint:
         return []
 
     def _check_references(self, model, references):
+        from django.db.models.fields.composite import CompositePrimaryKey
+
         errors = []
         fields = set()
         for field_name, *lookups in references:
-            # pk is an alias that won't be found by opts.get_field.
-            if field_name != "pk":
+            # pk is an alias that won't be found by opts.get_field().
+            if field_name != "pk" or isinstance(model._meta.pk, CompositePrimaryKey):
                 fields.add(field_name)
             if not lookups:
                 # If it has no lookups it cannot result in a JOIN.

@@ -26,7 +26,7 @@ from django.test import SimpleTestCase, TestCase, ignore_warnings, skipUnlessDBF
 from django.test.utils import isolate_apps
 from django.utils.choices import BlankChoiceIterator
 from django.utils.deprecation import RemovedInDjango60Warning
-from django.utils.version import PYPY
+from django.utils.version import PY314, PYPY
 
 from .models import (
     Article,
@@ -3048,10 +3048,11 @@ class OtherModelFormTests(TestCase):
                 return ", ".join(c.name for c in obj.colours.all())
 
         field = ColorModelChoiceField(ColourfulItem.objects.prefetch_related("colours"))
-        # CPython calls ModelChoiceField.__len__() when coercing to tuple. PyPy
-        # doesn't call __len__() and so .count() isn't called on the QuerySet.
-        # The following would trigger an extra query if prefetch were ignored.
-        with self.assertNumQueries(2 if PYPY else 3):
+        # CPython < 3.14 calls ModelChoiceField.__len__() when coercing to
+        # tuple. PyPy and Python 3.14+ don't call __len__() and so .count()
+        # isn't called on the QuerySet. The following would trigger an extra
+        # query if prefetch were ignored.
+        with self.assertNumQueries(2 if PYPY or PY314 else 3):
             self.assertEqual(
                 tuple(field.choices),
                 (
@@ -3207,11 +3208,13 @@ class ModelFormCustomErrorTests(SimpleTestCase):
         errors = CustomErrorMessageForm(data).errors
         self.assertHTMLEqual(
             str(errors["name1"]),
-            '<ul class="errorlist"><li>Form custom error message.</li></ul>',
+            '<ul class="errorlist" id="id_name1_error">'
+            "<li>Form custom error message.</li></ul>",
         )
         self.assertHTMLEqual(
             str(errors["name2"]),
-            '<ul class="errorlist"><li>Model custom error message.</li></ul>',
+            '<ul class="errorlist" id="id_name2_error">'
+            "<li>Model custom error message.</li></ul>",
         )
 
     def test_model_clean_error_messages(self):
@@ -3220,14 +3223,15 @@ class ModelFormCustomErrorTests(SimpleTestCase):
         self.assertFalse(form.is_valid())
         self.assertHTMLEqual(
             str(form.errors["name1"]),
-            '<ul class="errorlist"><li>Model.clean() error messages.</li></ul>',
+            '<ul class="errorlist" id="id_name1_error">'
+            "<li>Model.clean() error messages.</li></ul>",
         )
         data = {"name1": "FORBIDDEN_VALUE2", "name2": "ABC"}
         form = CustomErrorMessageForm(data)
         self.assertFalse(form.is_valid())
         self.assertHTMLEqual(
             str(form.errors["name1"]),
-            '<ul class="errorlist">'
+            '<ul class="errorlist" id="id_name1_error">'
             "<li>Model.clean() error messages (simpler syntax).</li></ul>",
         )
         data = {"name1": "GLOBAL_ERROR", "name2": "ABC"}
