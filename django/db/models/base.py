@@ -348,7 +348,7 @@ class ModelBase(type):
                 new_class._meta.parents.update(base_parents)
 
             # Inherit private fields (like GenericForeignKey) from the parent
-            # class
+            # class if they are not overridden.
             for field in base._meta.private_fields:
                 if field.name in field_names:
                     if not base._meta.abstract:
@@ -361,7 +361,10 @@ class ModelBase(type):
                                 base.__name__,
                             )
                         )
-                else:
+                elif (
+                    field.name not in new_class.__dict__
+                    and field.name not in inherited_attributes
+                ):
                     field = copy.deepcopy(field)
                     if not base._meta.abstract:
                         field.mti_inherited = True
@@ -753,11 +756,12 @@ class Model(AltersData, metaclass=ModelBase):
 
         db_instance = db_instance_qs.get()
         non_loaded_fields = db_instance.get_deferred_fields()
-        for field in self._meta.concrete_fields:
+        for field in self._meta.fields:
             if field.attname in non_loaded_fields:
                 # This field wasn't refreshed - skip ahead.
                 continue
-            setattr(self, field.attname, getattr(db_instance, field.attname))
+            if field.concrete:
+                setattr(self, field.attname, getattr(db_instance, field.attname))
             # Clear or copy cached foreign keys.
             if field.is_relation:
                 if field.is_cached(db_instance):
